@@ -46,6 +46,7 @@ class Preprocessor:
     'Args:': 'Arguments',
     'Arguments:': 'Arguments',
     'Attributes:': 'Attributes',
+    'Choices:': 'Choices',
     'Example:': 'Examples',
     'Examples:': 'Examples',
     'Keyword Args:': 'Arguments',
