@@ -1,4 +1,7 @@
-## pydocmd
+> [April 23, 2019] The current version of Pydoc-Markdown (2.x) is not actively developed.
+> Efforts are focused on Pydoc-markdown 3.x which can be found on the [develop](https://github.com/NiklasRosenstein/pydoc-markdown/tree/develop).
+
+# pydocmd
 
 &ndash; *insipired by the [Keras] Documentation*
 
@@ -58,6 +61,7 @@ generate:
 # MkDocs pages configuration. The `<<` operator is sugar added by pydocmd
 # that allows you to use an external Markdown file (eg. your project's README)
 # in the documentation. The path must be relative to current working directory.
+# This configuration is not mandatory if you have your own mkdocs.yml config file.
 pages:
 - Home: index.md << ../README.md
 - foobar.baz:
@@ -70,7 +74,7 @@ gens_dir: _build/pydocmd     # This will end up as the MkDocs 'docs_dir'
 site_dir: _build/site
 theme:    readthedocs
 loader:   pydocmd.loader.PythonLoader
-preprocessor: pydocmd.preprocessor.Preprocessor
+preprocessor: pydocmd.preprocessors.simple.Preprocessor
 
 # Whether to output headers as markdown or HTML.  Used to workaround
 # https://github.com/NiklasRosenstein/pydoc-markdown/issues/11.  The default is

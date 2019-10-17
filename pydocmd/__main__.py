@@ -54,12 +54,12 @@ def default_config(config):
   config.setdefault('gens_dir', '_build/pydocmd')
   config.setdefault('site_dir', '_build/site')
   if args.command == 'simple':
-      config.setdefault('headers', 'markdown')
+    config.setdefault('headers', 'markdown')
   else:
-      config.setdefault('headers', 'html')
+    config.setdefault('headers', 'html')
   config.setdefault('theme', 'readthedocs')
   config.setdefault('loader', 'pydocmd.loader.PythonLoader')
-  config.setdefault('preprocessor', 'pydocmd.preprocessor.Preprocessor')
+  config.setdefault('preprocessor', 'pydocmd.preprocessors.simple.Preprocessor')
   config.setdefault('additional_search_paths', [])
   return config
 
@@ -69,12 +69,13 @@ def write_temp_mkdocs_config(inconf):
   Generates a configuration for MkDocs on-the-fly from the pydoc-markdown
   configuration and makes sure it gets removed when this program exists.
   """
+  ignored_keys = ('gens_dir', 'pages', 'headers', 'generate', 'loader',
+                  'preprocessor', 'additional_search_paths')
 
-  config = {key: inconf[key] for key in ('site_name', 'site_dir', 'theme')}
+  config = {key: value for key, value in inconf.items() if key not in ignored_keys}
   config['docs_dir'] = inconf['gens_dir']
-  for key in ('markdown_extensions', 'pages', 'repo_url'):
-    if key in inconf:
-      config[key] = inconf[key]
+  if 'pages' in inconf:
+      config['nav'] = inconf['pages']
 
   with open('mkdocs.yml', 'w') as fp:
     yaml.dump(config, fp)
@@ -91,7 +92,24 @@ def makedirs(path):
     os.makedirs(path)
 
 
-def copy_source_files(config):
+# Also process all pages to copy files outside of the docs_dir to the gens_dir.
+def process_pages(data, gens_dir):
+  for key in data:
+    filename = data[key]
+    if isinstance(filename, str) and '<<' in filename:
+      filename, source = filename.split('<<')
+      filename, source = filename.rstrip(), source.lstrip()
+      outfile = os.path.join(gens_dir, filename)
+      makedirs(os.path.dirname(outfile))
+      shutil.copyfile(source, outfile)
+      data[key] = filename
+    elif isinstance(filename, dict):
+      process_pages(filename, gens_dir)
+    elif isinstance(filename, list):
+      [process_pages(x, gens_dir) for x in filename]
+
+
+def copy_source_files(config, pages_required=True):
   """
   Copies all files from the `docs_dir` to the `gens_dir` defined in the
   *config*. It also takes the MkDocs `pages` configuration into account
@@ -113,24 +131,14 @@ def copy_source_files(config):
       makedirs(os.path.dirname(dest_fname))
       shutil.copyfile(os.path.join(root, fname), dest_fname)
 
-  # Also process all pages to copy files outside of the docs_dir
-  # to the gens_dir.
-  def process_pages(data):
-    for key in data:
-      filename = data[key]
-      if isinstance(filename, str) and '<<' in filename:
-        filename, source = filename.split('<<')
-        filename, source = filename.rstrip(), source.lstrip()
-        outfile = os.path.join(config['gens_dir'], filename)
-        makedirs(os.path.dirname(outfile))
-        shutil.copyfile(source, outfile)
-        data[key] = filename
-      elif isinstance(filename, dict):
-        process_pages(filename)
-      elif isinstance(filename, list):
-        [process_pages(x) for x in filename]
+  if 'pages' not in config:
+    if pages_required:
+      raise RuntimeError('pydocmd.yml does not have defined pages!')
+
+    return
+
   for page in config['pages']:
-    process_pages(page)
+    process_pages(page, config['gens_dir'])
 
 
 def new_project():
@@ -177,10 +185,10 @@ def main():
   preproc = import_object(config['preprocessor'])(config)
 
   if args.command != 'simple':
-    copy_source_files(config)
+    mkdocs_exist = os.path.isfile('mkdocs.yml')
+    copy_source_files(config, pages_required=not mkdocs_exist)
 
-    # Generate MkDocs configuration if it doesn't exist.
-    if not os.path.isfile('mkdocs.yml'):
+    if not mkdocs_exist:
       log('Generating temporary MkDocs config...')
       write_temp_mkdocs_config(config)
 
@@ -233,6 +241,10 @@ def main():
         doc = index.new_document(fname)
         add_sections(doc, object_names)
 
+  preproc.link_lookup = {}
+  for file, doc in index.documents.items():
+    for section in doc.sections:
+      preproc.link_lookup[section.identifier] = file
   # Load the docstrings and fill the sections.
   log('Started generating documentation...')
   for doc in index.documents.values():

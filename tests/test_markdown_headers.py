@@ -3,11 +3,9 @@ import io
 
 from pydocmd.document import Section
 
-@pytest.fixture
-def section():
-  return Section(None)
 
-def test_preprocess_section(section):
+def test_preprocess_section():
+  section = Section(None)
   section.depth = 1
   section.title = 'My Header'
   section.content = 'content'
@@ -20,9 +18,8 @@ def test_preprocess_section(section):
   section.header_type = 'markdown'
   markdown_header_buffer = io.StringIO()
   section.render(markdown_header_buffer)
-  assert markdown_header_buffer.getvalue() == "# My Header\ncontent\n"
+  assert markdown_header_buffer.getvalue() == "\n# My Header\ncontent\n"
 
-  with pytest.raises(ValueError,
-                     message="Expected exception on invalid header type"):
+  with pytest.raises(ValueError):
     section.header_type = 'invalid'
     section.render(markdown_header_buffer)
